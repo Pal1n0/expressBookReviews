@@ -6,23 +6,62 @@ const regd_users = express.Router();
 let users = [];
 
 const isValid = (username)=>{ //returns boolean
-//write code to check is the username is valid
+    return users.some(user => user.username === username)
 }
 
 const authenticatedUser = (username,password)=>{ //returns boolean
-//write code to check if username and password match the one we have in records.
+    return users.some(user => user.username === username && user.password === password);
 }
 
 //only registered users can login
 regd_users.post("/login", (req,res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ message: "Username and password are required" });
+  }
+
+  if (!isValid(username)) {
+    return res.status(401).json({ message: "User not registered" });
+  }
+  
+  if (!authenticatedUser(username, password)) {
+    return res.status(401).json({ message: "Invalid username or password" });
+  }
+
+  const accessToken = jwt.sign(
+    { username },           // payload
+    "access",               // secret key
+    { expiresIn: 60 * 60 }  // 1 hour expiry
+  );
+
+  req.session.authorization = {
+    accessToken,
+    username
+  };
+  return res.status(300).json({message: "User successfully logged in"});
 });
 
 // Add a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+    const isbn = req.params.isbn;
+    const username = req.session.authorization.username;
+    const reviewText = req.body.review;
+    const book = books[isbn];
+
+    if (!reviewText) {
+        return res.status(400).json({ message: "Review text is required" });
+      }
+
+  if (!book) {
+    return res.status(404).json({ message: "Book not found" });
+  }
+  
+  book.reviews[username] = reviewText;
+
+
+  return res.status(300).json({message: `Review for book '${book.title}' by user '${username}' has been added/updated.`,
+    reviews: book.reviews});
 });
 
 module.exports.authenticated = regd_users;
